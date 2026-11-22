@@ -13,14 +13,6 @@ import android.graphics.Color;
 import android.view.Gravity;
 import android.view.View;
 import android.content.SharedPreferences;
-import android.content.Intent;
-import android.net.Uri;
-
-import org.json.JSONObject;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import android.widget.FrameLayout;
 
 import java.nio.ByteBuffer;
@@ -101,10 +93,6 @@ public class MainActivity extends Activity {
         panel.addView(clicksText);
         panel.addView(powerText);
         panel.addView(incomeText);
-        Button updateButton = new Button(this);
-        updateButton.setText("ПРОВЕРИТЬ ОБНОВЛЕНИЯ");
-        updateButton.setOnClickListener(v -> checkForUpdates());
-        panel.addView(updateButton);
 
         FrameLayout.LayoutParams topParams = new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -169,93 +157,6 @@ public class MainActivity extends Activity {
 
         setContentView(root);
         updateUI();
-    }
-
-    private void checkForUpdates() {
-        Toast.makeText(this, "Проверяю обновления...", Toast.LENGTH_SHORT).show();
-        new Thread(() -> {
-            HttpURLConnection connection = null;
-            try {
-                URL url = new URL("https://api.github.com/repos/ima707415-hub/EarthClicker-3D/releases/latest");
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("GET");
-                connection.setConnectTimeout(8000);
-                connection.setReadTimeout(8000);
-                connection.setRequestProperty("Accept", "application/vnd.github+json");
-                connection.setRequestProperty("User-Agent", "EarthClicker3D");
-                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"));
-                StringBuilder response = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) response.append(line);
-                reader.close();
-
-                JSONObject release = new JSONObject(response.toString());
-                String latestVersion = release.optString("tag_name", "").replaceFirst("^[vV]", "");
-                String releasePage = release.optString("html_url", "https://github.com/ima707415-hub/EarthClicker-3D/releases");
-                String downloadUrl = releasePage;
-                org.json.JSONArray assets = release.optJSONArray("assets");
-                if (assets != null) {
-                    for (int i = 0; i < assets.length(); i++) {
-                        JSONObject asset = assets.optJSONObject(i);
-                        if (asset != null && asset.optString("name", "").toLowerCase().endsWith(".apk")) {
-                            downloadUrl = asset.optString("browser_download_url", releasePage);
-                            break;
-                        }
-                    }
-                }
-
-                String currentVersion = getPackageManager()
-                    .getPackageInfo(getPackageName(), 0).versionName;
-                final String foundVersion = latestVersion;
-                final String foundUrl = downloadUrl;
-                final String installedVersion = currentVersion == null ? "1.0" : currentVersion;
-
-                runOnUiThread(() -> {
-                    if (foundVersion.isEmpty() || compareVersions(foundVersion, installedVersion) <= 0) {
-                        Toast.makeText(this, "Установлена последняя версия: " + installedVersion,
-                            Toast.LENGTH_LONG).show();
-                    } else {
-                        new AlertDialog.Builder(this)
-                            .setTitle("Доступно обновление")
-                            .setMessage("Установлена версия " + installedVersion +
-                                "\\nНовая версия: " + foundVersion +
-                                "\\n\\nСкачайте APK и установите его поверх текущей версии.")
-                            .setPositiveButton("Скачать", (dialog, which) -> {
-                                try {
-                                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(foundUrl)));
-                                } catch (Exception e) {
-                                    Toast.makeText(this, "Не удалось открыть ссылку на APK",
-                                        Toast.LENGTH_LONG).show();
-                                }
-                            })
-                            .setNegativeButton("Позже", null)
-                            .show();
-                    }
-                });
-            } catch (Exception e) {
-                runOnUiThread(() -> Toast.makeText(this,
-                    "Не удалось проверить обновления. Проверьте подключение к интернету.",
-                    Toast.LENGTH_LONG).show());
-            } finally {
-                if (connection != null) connection.disconnect();
-            }
-        }).start();
-    }
-
-    private int compareVersions(String first, String second) {
-        try {
-            String[] a = first.split("\\.");
-            String[] b = second.split("\\.");
-            int count = Math.max(a.length, b.length);
-            for (int i = 0; i < count; i++) {
-                int av = i < a.length ? Integer.parseInt(a[i].replaceAll("[^0-9].*$", "")) : 0;
-                int bv = i < b.length ? Integer.parseInt(b[i].replaceAll("[^0-9].*$", "")) : 0;
-                if (av != bv) return Integer.compare(av, bv);
-            }
-        } catch (Exception ignored) {
-            return first.compareTo(second);
-        }
-        return 0;
     }
 
     private TextView makeText(int size) {
@@ -398,8 +299,8 @@ public class MainActivity extends Activity {
             "float st = sin(uTilt);" +
             "p = vec3(p.x,p.y*ct-p.z*st,p.y*st+p.z*ct);" +
             "vNormal = normalize(p);" +
-            "gl_Position = vec4(p.x*0.82/uAspect,p.y*0.82,p.z*0.42,1.0);" +
-            "gl_PointSize = 13.0;" +
+            "gl_Position = vec4(p.x*0.60/uAspect,p.y*0.60,p.z*0.30,1.0);" +
+            "gl_PointSize = 8.0;" +
             "}";
 
         private final String fragmentShader =
@@ -473,7 +374,7 @@ public class MainActivity extends Activity {
                 GLES20.glDrawArrays(GLES20.GL_POINTS, 0, treeCount);
             }
             GLES20.glDisableVertexAttribArray(pos);
-            angle += 0.003f;
+            angle += 0.008f;
         }
 
         void rotate(float x, float y) {
