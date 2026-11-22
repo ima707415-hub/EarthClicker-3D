@@ -2,6 +2,11 @@ plugins {
     id 'com.android.application'
 }
 
+def ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")
+def appVersionCode = ciRunNumber != null ? ciRunNumber.toInteger() : 2
+def appVersionName = ciRunNumber != null ? "1.0.${ciRunNumber}" : "1.0.2"
+def releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+
 android {
     namespace 'com.earthclicker.game'
     compileSdk 35
@@ -10,7 +15,27 @@ android {
         applicationId 'com.earthclicker.game'
         minSdk 23
         targetSdk 35
-        versionCode 1
-        versionName '1.0'
+        versionCode appVersionCode
+        versionName appVersionName
+    }
+
+    if (releaseKeystorePath != null) {
+        signingConfigs {
+            release {
+                storeFile file(releaseKeystorePath)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (releaseKeystorePath != null) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+        }
     }
 }
