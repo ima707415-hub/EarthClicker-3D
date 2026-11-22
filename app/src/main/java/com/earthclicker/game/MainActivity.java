@@ -299,7 +299,7 @@ public class MainActivity extends Activity {
             "float st = sin(uTilt);" +
             "p = vec3(p.x,p.y*ct-p.z*st,p.y*st+p.z*ct);" +
             "vNormal = normalize(p);" +
-            "gl_Position = vec4(p.x*0.60/uAspect,p.y*0.60,p.z*0.30,1.0);" +
+            "gl_Position = vec4(p.x*0.54/uAspect,p.y*0.54,p.z*0.27,1.0);" +
             "gl_PointSize = 8.0;" +
             "}";
 
@@ -378,8 +378,8 @@ public class MainActivity extends Activity {
         }
 
         void rotate(float x, float y) {
-            angle += x * 0.01f;
-            tilt += y * 0.01f;
+            angle += x * 0.02f;
+            tilt += y * 0.02f;
             if (tilt > 1.2f) tilt = 1.2f;
             if (tilt < -1.2f) tilt = -1.2f;
         }
