@@ -1,10 +1,13 @@
-name: Build EarthClicker3D APK
+name: Build and release EarthClicker3D
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -31,11 +34,37 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Build APK
+      - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
 
-      - name: Save APK
+      - name: Save debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: EarthClicker3D-APK
+          name: EarthClicker3D-debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Prepare release signing key
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/earthclicker-release.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/earthclicker-release.jks" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Publish versioned GitHub Release
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: EarthClicker 1.0.${{ github.run_number }}
+          generate_release_notes: true
+          make_latest: true
+          files: app/build/outputs/apk/release/app-release.apk
