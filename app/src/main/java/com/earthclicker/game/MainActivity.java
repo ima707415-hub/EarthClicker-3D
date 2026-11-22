@@ -126,29 +126,42 @@ public class MainActivity extends Activity {
 
         glView.setOnTouchListener(new View.OnTouchListener() {
             float lastX, lastY;
+            float downX, downY;
             boolean moved;
             @Override
             public boolean onTouch(View v, MotionEvent e) {
                 switch (e.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        lastX = e.getX();
-                        lastY = e.getY();
+                        lastX = downX = e.getX();
+                        lastY = downY = e.getY();
                         moved = false;
                         return true;
+
                     case MotionEvent.ACTION_MOVE:
                         float dx = e.getX() - lastX;
                         float dy = e.getY() - lastY;
-                        if (Math.abs(dx) + Math.abs(dy) > 5) {
-                            moved = true;
-                            final float x = dx;
-                            final float y = dy;
-                            glView.queueEvent(() -> renderer.rotate(x, y));
+
+                        // Rotate for every small finger movement. Do not apply
+                        // a per-event threshold: Android often sends many tiny deltas.
+                        if (dx != 0f || dy != 0f) {
+                            final float dragX = dx;
+                            final float dragY = dy;
+                            glView.queueEvent(() -> renderer.rotate(dragX, dragY));
                         }
+
+                        if (Math.abs(e.getX() - downX) + Math.abs(e.getY() - downY) > 10f) {
+                            moved = true;
+                        }
+
                         lastX = e.getX();
                         lastY = e.getY();
                         return true;
+
                     case MotionEvent.ACTION_UP:
-                        if (!moved) clickEarth();
+                    case MotionEvent.ACTION_CANCEL:
+                        if (e.getAction() == MotionEvent.ACTION_UP && !moved) {
+                            clickEarth();
+                        }
                         return true;
                 }
                 return true;
