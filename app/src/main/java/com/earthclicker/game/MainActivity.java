@@ -24,6 +24,7 @@ public class MainActivity extends Activity {
     private EarthRenderer renderer;
 
     private TextView coinsText, clicksText, powerText;
+    private Button upgradeButton;
 
     private int coins;
     private int clicks;
@@ -85,9 +86,8 @@ public class MainActivity extends Activity {
 
         root.addView(panel, topParams);
 
-        Button upgrade = new Button(this);
-        upgrade.setText("УЛУЧШИТЬ СИЛУ КЛИКА");
-        upgrade.setOnClickListener(v -> buyUpgrade());
+        upgradeButton = new Button(this);
+        upgradeButton.setOnClickListener(v -> buyUpgrade());
 
         FrameLayout.LayoutParams bottomParams =
             new FrameLayout.LayoutParams(
@@ -96,7 +96,7 @@ public class MainActivity extends Activity {
                 Gravity.BOTTOM
             );
 
-        root.addView(upgrade, bottomParams);
+        root.addView(upgradeButton, bottomParams);
 
         glView.setOnTouchListener(new View.OnTouchListener() {
             float lastX, lastY;
@@ -163,7 +163,9 @@ public class MainActivity extends Activity {
         if (coins >= upgradeCost) {
             coins -= upgradeCost;
             power++;
-            upgradeCost *= 2;
+            upgradeCost = upgradeCost <= Integer.MAX_VALUE / 2
+                ? upgradeCost * 2
+                : Integer.MAX_VALUE;
 
             saveGame();
             updateUI();
@@ -185,9 +187,9 @@ public class MainActivity extends Activity {
     private void updateUI() {
         coinsText.setText("Земные монеты: " + coins);
         clicksText.setText("Клики: " + clicks);
-        powerText.setText(
-            "Сила клика: " + power +
-            " | Улучшение: " + upgradeCost + " монет"
+        powerText.setText("Сила клика: " + power);
+        upgradeButton.setText(
+            "УЛУЧШИТЬ СИЛУ КЛИКА\nЦена: " + upgradeCost + " монет"
         );
     }
 
