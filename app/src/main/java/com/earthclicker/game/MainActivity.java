@@ -10,6 +10,7 @@ import android.graphics.Color;
 import android.view.Gravity;
 import android.view.View;
 import android.content.SharedPreferences;
+import android.widget.FrameLayout;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -19,22 +20,24 @@ import java.util.Random;
 
 public class MainActivity extends Activity {
 
-    GLSurfaceView glView;
-    EarthRenderer renderer;
+    private GLSurfaceView glView;
+    private EarthRenderer renderer;
 
-    TextView coinsText, clicksText, powerText;
-    int coins = 0;
-    int clicks = 0;
-    int power = 1;
-    int upgradeCost = 50;
+    private TextView coinsText, clicksText, powerText;
 
-    SharedPreferences save;
+    private int coins;
+    private int clicks;
+    private int power;
+    private int upgradeCost;
+
+    private SharedPreferences save;
 
     @Override
-    protected void onCreate(Bundle b) {
-        super.onCreate(b);
+    protected void onCreate(Bundle state) {
+        super.onCreate(state);
 
         save = getSharedPreferences("earth_save", MODE_PRIVATE);
+
         coins = save.getInt("coins", 0);
         clicks = save.getInt("clicks", 0);
         power = save.getInt("power", 1);
@@ -55,7 +58,7 @@ public class MainActivity extends Activity {
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(20, 30, 20, 20);
         panel.setGravity(Gravity.CENTER_HORIZONTAL);
-        panel.setBackgroundColor(Color.argb(150, 10, 20, 45));
+        panel.setBackgroundColor(Color.argb(170, 5, 15, 40));
 
         coinsText = new TextView(this);
         clicksText = new TextView(this);
@@ -65,7 +68,7 @@ public class MainActivity extends Activity {
         clicksText.setTextColor(Color.WHITE);
         powerText.setTextColor(Color.WHITE);
 
-        coinsText.setTextSize(24);
+        coinsText.setTextSize(23);
         clicksText.setTextSize(17);
         powerText.setTextSize(17);
 
@@ -75,7 +78,9 @@ public class MainActivity extends Activity {
 
         FrameLayout.LayoutParams topParams =
             new FrameLayout.LayoutParams(
-                -1, -2, Gravity.TOP
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP
             );
 
         root.addView(panel, topParams);
@@ -86,7 +91,9 @@ public class MainActivity extends Activity {
 
         FrameLayout.LayoutParams bottomParams =
             new FrameLayout.LayoutParams(
-                -1, -2, Gravity.BOTTOM
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM
             );
 
         root.addView(upgrade, bottomParams);
@@ -95,6 +102,7 @@ public class MainActivity extends Activity {
             float lastX, lastY;
             boolean moved;
 
+            @Override
             public boolean onTouch(View v, MotionEvent e) {
                 switch (e.getAction()) {
                     case MotionEvent.ACTION_DOWN:
@@ -109,7 +117,9 @@ public class MainActivity extends Activity {
 
                         if (Math.abs(dx) + Math.abs(dy) > 5) {
                             moved = true;
-                            renderer.rotate(dx * 0.5f, dy * 0.5f);
+                            final float x = dx;
+                            final float y = dy;
+                            glView.queueEvent(() -> renderer.rotate(x, y));
                         }
 
                         lastX = e.getX();
@@ -122,6 +132,7 @@ public class MainActivity extends Activity {
                         }
                         return true;
                 }
+
                 return true;
             }
         });
@@ -130,12 +141,13 @@ public class MainActivity extends Activity {
         updateUI();
     }
 
-    void clickEarth() {
+    private void clickEarth() {
         clicks++;
         coins += power;
 
         if (clicks % 100 == 0) {
-            renderer.addTree();
+            glView.queueEvent(() -> renderer.addTree());
+
             Toast.makeText(
                 this,
                 "Новое дерево появилось на Земле!",
@@ -147,7 +159,7 @@ public class MainActivity extends Activity {
         updateUI();
     }
 
-    void buyUpgrade() {
+    private void buyUpgrade() {
         if (coins >= upgradeCost) {
             coins -= upgradeCost;
             power++;
@@ -170,7 +182,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    void updateUI() {
+    private void updateUI() {
         coinsText.setText("Земные монеты: " + coins);
         clicksText.setText("Клики: " + clicks);
         powerText.setText(
@@ -179,7 +191,7 @@ public class MainActivity extends Activity {
         );
     }
 
-    void saveGame() {
+    private void saveGame() {
         save.edit()
             .putInt("coins", coins)
             .putInt("clicks", clicks)
@@ -191,19 +203,27 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
-        glView.onPause();
+
+        if (glView != null) {
+            glView.onPause();
+        }
+
         saveGame();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (glView != null) glView.onResume();
+
+        if (glView != null) {
+            glView.onResume();
+        }
     }
 
-    class EarthRenderer implements GLSurfaceView.Renderer {
+    private class EarthRenderer implements GLSurfaceView.Renderer {
 
         private int program;
+
         private FloatBuffer vertices;
         private ShortBuffer indices;
         private FloatBuffer treeBuffer;
@@ -218,7 +238,6 @@ public class MainActivity extends Activity {
             "attribute vec3 aPosition;" +
             "uniform float uAngle;" +
             "uniform float uTilt;" +
-            "uniform int uPoint;" +
             "varying vec3 vPos;" +
             "void main() {" +
             "float c = cos(uAngle);" +
@@ -258,19 +277,16 @@ public class MainActivity extends Activity {
             "gl_FragColor = vec4(color,1.0);" +
             "}";
 
+        @Override
         public void onSurfaceCreated(
+            javax.microedition.khronos.opengles.GL10 gl,
             javax.microedition.khronos.egl.EGLConfig config) {
 
             GLES20.glClearColor(0.005f, 0.008f, 0.03f, 1f);
             GLES20.glEnable(GLES20.GL_DEPTH_TEST);
 
-            int vs = loadShader(
-                GLES20.GL_VERTEX_SHADER, vertexShader
-            );
-
-            int fs = loadShader(
-                GLES20.GL_FRAGMENT_SHADER, fragmentShader
-            );
+            int vs = loadShader(GLES20.GL_VERTEX_SHADER, vertexShader);
+            int fs = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShader);
 
             program = GLES20.glCreateProgram();
             GLES20.glAttachShader(program, vs);
@@ -281,13 +297,16 @@ public class MainActivity extends Activity {
             updateTrees();
         }
 
+        @Override
         public void onSurfaceChanged(
-            javax.microedition.khronos.egl.EGLConfig config,
-            int width, int height) {
+            javax.microedition.khronos.opengles.GL10 gl,
+            int width,
+            int height) {
 
             GLES20.glViewport(0, 0, width, height);
         }
 
+        @Override
         public void onDrawFrame(
             javax.microedition.khronos.opengles.GL10 gl) {
 
@@ -298,24 +317,14 @@ public class MainActivity extends Activity {
 
             GLES20.glUseProgram(program);
 
-            int pos = GLES20.glGetAttribLocation(
-                program, "aPosition"
-            );
-
-            int angleLoc = GLES20.glGetUniformLocation(
-                program, "uAngle"
-            );
-
-            int tiltLoc = GLES20.glGetUniformLocation(
-                program, "uTilt"
-            );
-
-            int pointLoc = GLES20.glGetUniformLocation(
-                program, "uPoint"
-            );
+            int pos = GLES20.glGetAttribLocation(program, "aPosition");
+            int angleLoc = GLES20.glGetUniformLocation(program, "uAngle");
+            int tiltLoc = GLES20.glGetUniformLocation(program, "uTilt");
+            int pointLoc = GLES20.glGetUniformLocation(program, "uPoint");
 
             GLES20.glUniform1f(angleLoc, angle);
             GLES20.glUniform1f(tiltLoc, tilt);
+
             GLES20.glUniform1i(pointLoc, 0);
 
             GLES20.glEnableVertexAttribArray(pos);
@@ -334,7 +343,7 @@ public class MainActivity extends Activity {
                 indices
             );
 
-            if (treeCount > 0) {
+            if (treeCount > 0 && treeBuffer != null) {
                 GLES20.glUniform1i(pointLoc, 1);
 
                 treeBuffer.position(0);
@@ -381,11 +390,9 @@ public class MainActivity extends Activity {
                 data[i*3+2] = r * (float)Math.sin(a) * 1.01f;
             }
 
-            ByteBuffer bb = ByteBuffer.allocateDirect(
-                data.length * 4
-            );
-
+            ByteBuffer bb = ByteBuffer.allocateDirect(data.length * 4);
             bb.order(ByteOrder.nativeOrder());
+
             treeBuffer = bb.asFloatBuffer();
             treeBuffer.put(data);
             treeBuffer.position(0);
@@ -406,15 +413,9 @@ public class MainActivity extends Activity {
                 for (int j = 0; j <= lon; j++) {
                     float phi = (float)(2*Math.PI*j/lon);
 
-                    v[n++] = (float)(
-                        Math.sin(theta)*Math.cos(phi)
-                    );
-
+                    v[n++] = (float)(Math.sin(theta)*Math.cos(phi));
                     v[n++] = (float)Math.cos(theta);
-
-                    v[n++] = (float)(
-                        Math.sin(theta)*Math.sin(phi)
-                    );
+                    v[n++] = (float)(Math.sin(theta)*Math.sin(phi));
                 }
             }
 
@@ -439,22 +440,24 @@ public class MainActivity extends Activity {
 
             ByteBuffer vb = ByteBuffer.allocateDirect(v.length*4);
             vb.order(ByteOrder.nativeOrder());
+
             vertices = vb.asFloatBuffer();
             vertices.put(v);
             vertices.position(0);
 
             ByteBuffer ib = ByteBuffer.allocateDirect(idx.length*2);
             ib.order(ByteOrder.nativeOrder());
+
             indices = ib.asShortBuffer();
             indices.put(idx);
             indices.position(0);
         }
 
-        int loadShader(int type, String code) {
+        private int loadShader(int type, String code) {
             int shader = GLES20.glCreateShader(type);
             GLES20.glShaderSource(shader, code);
             GLES20.glCompileShader(shader);
             return shader;
         }
     }
-              }
+}
